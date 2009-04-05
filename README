@@ -11,10 +11,16 @@ visualize the calculation graph.
 pessheet can also export the spreadsheet as a python script, to be used as a 
 starting point to convert the spreadsheet calculation into a program. 
 
+It is still version 0.something low, and has quite a few rough edges. The code 
+is not to look at for the faint of heart. But it is possible to use it for 
+real work. 
+
 pessheet uses wxPython. 
 
 The logic part is originally based on a comment at 
 http://code.activestate.com/recipes/355045/, although much of it has been 
 modified. 
 
+I wouldn't even have started if I hadn't seen the spreadsheet example at 
+http://www.zetcode.com/wxpython/skeletons/
 
