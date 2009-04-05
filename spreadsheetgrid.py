@@ -3,48 +3,6 @@ import wx.grid
 
 from spreadsheet import SpreadSheet, SpreadSheetError, SpreadSheetCell
 
-class ButtonRenderer(wx.grid.PyGridCellRenderer):
-    def __init__(self):
-        wx.grid.PyGridCellRenderer.__init__(self)
-
-    def DrawBezel(self, grid, dc, rect, isSelected):
-        if isSelected:
-            state = wx.CONTROL_PRESSED
-        else:
-            state = 0
-        #if not self.IsEnabled():
-            #state = wx.CONTROL_DISABLED
-        #pt = grid.ScreenToClient(wx.GetMousePosition())
-        #if rect.Contains(pt):
-        #if isSelected:
-            #state = wx.CONTROL_CURRENT
-        print state
-        wx.RendererNative.Get().DrawPushButton(grid, dc, rect, state)
-
-    def Draw(self, grid, attr, dc, rect, row, col, isSelected):
-        text = grid.GetCellValue(row, col)
-        hAlign, vAlign = attr.GetAlignment()
-        vAlign = wx.ALIGN_CENTER
-        hAlign = wx.ALIGN_CENTER
-        dc.SetFont(attr.GetFont())
-        bg = grid.GetSelectionBackground()
-        #fg = grid.GetSelectionForeground()
-        #bg = wx.WHITE
-        fg = wx.BLACK
-        dc.SetTextBackground(bg)
-        dc.SetTextForeground(fg)
-        #dc.SetBrush(wx.Brush(bg, wx.SOLID))
-        #dc.SetPen(wx.TRANSPARENT_PEN)
-        #dc.DrawRectangleRect(rect)
-        self.DrawBezel(grid, dc, rect, isSelected)
-        grid.DrawTextRectangle(dc, text, rect, hAlign, vAlign)
-
-    def GetBestSize(self, grid, attr, dc, row, col):
-        return (10, 10)
-
-    def Clone(self):
-        return ButtonRenderer()
-
 class SpreadSheetCellEditor(wx.grid.PyGridCellEditor):
     def __init__(self):
         wx.grid.PyGridCellEditor.__init__(self)
@@ -163,21 +121,18 @@ class SpreadSheetTable(wx.grid.PyGridTableBase):
             cellname = self._spreadsheet.getCellName(row, col)
             cell = self._spreadsheet.getCell(cellname)
             if cell:
-                if cell.getValue() == 'button':
-                    attr = self._cell_attrs['buttons']
-                else:
-                    precedents = len(cell.getPrecedents())
-                    dependents = len(cell.getDependents())
-                    if (precedents == 0) and (dependents == 0):
-                        attr = self._cell_attrs['alone']
-                    elif (precedents > 0) and (dependents > 0):
-                        attr = self._cell_attrs['intermediate']
-                    # Only show global input and output when no cell is selected
-                    elif not self._selected_cell:
-                        if precedents == 0:
-                            attr = self._cell_attrs['input']
-                        elif dependents == 0:
-                            attr = self._cell_attrs['output']
+                precedents = len(cell.getPrecedents())
+                dependents = len(cell.getDependents())
+                if (precedents == 0) and (dependents == 0):
+                    attr = self._cell_attrs['alone']
+                elif (precedents > 0) and (dependents > 0):
+                    attr = self._cell_attrs['intermediate']
+                # Only show global input and output when no cell is selected
+                elif not self._selected_cell:
+                    if precedents == 0:
+                        attr = self._cell_attrs['input']
+                    elif dependents == 0:
+                        attr = self._cell_attrs['output']
         attr.IncRef()
         return attr
     
@@ -217,14 +172,6 @@ class SpreadSheetGrid(wx.grid.Grid):
             attr.SetBackgroundColour(col)
             return attr
 
-        def button_attr():
-            attr = wx.grid.GridCellAttr()
-            attr.SetBackgroundColour('#FFFFFF')
-            #attr.SetForegroundColour('#000000')
-            attr.SetRenderer(ButtonRenderer())
-            attr.SetFont(wx.Font(font_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-            return attr
-
         attrs = {}
         attrs['normal'] = wx.grid.GridCellAttr()
         attrs['intermediate'] = wx.grid.GridCellAttr()
@@ -238,7 +185,6 @@ class SpreadSheetGrid(wx.grid.Grid):
         attrs['alone'].SetFont(wx.Font(font_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         attrs['input'] = bg_attr('#FFFFDD')
         attrs['output'] = bg_attr('#DDFFDD')
-        attrs['buttons'] = button_attr()
 
         self._table = SpreadSheetTable(spreadsheet, attrs)
 
@@ -249,7 +195,7 @@ class SpreadSheetGrid(wx.grid.Grid):
         self.Bind(wx.EVT_MENU, self.OnEditCut, id=wx.ID_CUT)
         self.Bind(wx.EVT_MENU, self.OnEditCopy, id=wx.ID_COPY)
         self.Bind(wx.EVT_MENU, self.OnEditPaste, id=wx.ID_PASTE)
-        self.Bind(wx.grid.EVT_GRID_CELL_LEFT_CLICK, self.OnMouse)
+        #self.Bind(wx.grid.EVT_GRID_CELL_LEFT_CLICK, self.OnMouse)
 
     def OnGridSelectCell(self, event):
         self.updateSelectedCell(event.GetRow(), event.GetCol())
@@ -265,12 +211,7 @@ class SpreadSheetGrid(wx.grid.Grid):
 
     def OnMouse(self, event):
         edit, col, row = event.AltDown(), event.GetCol(), event.GetRow()
-        print edit, col, row
-        if self._table.GetValue(row, col) == 'button' and not edit:
-        #if not shift:
-            print 'button pressed'
-        else:
-            event.Skip()
+        event.Skip()
 
     def OnEditCut(self, event):
         print 'SpreadSheetGrid.OnEditCut', event
