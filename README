@@ -1,0 +1,20 @@
+pessheet, a Python extendable spreadsheet
+
+Somtimes a spreadsheet is the best way to work with a calculation. But working 
+inside a spreadsheet, sometimes you wish you could create just the function 
+you need. pessheet will help you. You have one tab for the spreadsheet, and 
+one tab for a python script that defines the functions. 
+
+pessheet can export the spreadsheet as a dot file to be used with graphvis to 
+visualize the calculation graph. 
+
+pessheet can also export the spreadsheet as a python script, to be used as a 
+starting point to convert the spreadsheet calculation into a program. 
+
+pessheet uses wxPython. 
+
+The logic part is originally based on a comment at 
+http://code.activestate.com/recipes/355045/, although much of it has been 
+modified. 
+
+

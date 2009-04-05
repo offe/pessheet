@@ -1,0 +1,17 @@
+
+cells = {
+    'a4': u"'First'", 
+    'b4': u'1', 
+    'a5': u"'Second'", 
+    'b5': u'2', 
+    'a6': u"'Third'", 
+    'b6': u'3', 
+    'a7': u"'Sum'", 
+    'b7': u'sum(b4_to_b6)', 
+    'a9': u"'Function call'", 
+    'b9': u'hello_n(b7)', 
+    'a10': u"'Direct'", 
+    'b10': u"'Hello %d' % b7"
+}
+
+script = u"\ndef hello_n(n):\n    return 'Hello %d' % n"
