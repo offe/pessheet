@@ -67,9 +67,11 @@ class SpreadSheetCellEditor(wx.grid.PyGridCellEditor):
 
 
 class SpreadSheetTable(wx.grid.PyGridTableBase):
-    def __init__(self, spreadsheet, cell_attrs):
+    def __init__(self, spreadsheet, cell_attrs, 
+                 selection_callbacks=None):
         wx.grid.PyGridTableBase.__init__(self)
         self._selected_cell = None
+        self._selection_callbacks = selection_callbacks or []
         # Sets of cell position that should have other cell formatting/colours
         self._dependents_pos = set()
         self._precedents_pos = set()
@@ -79,13 +81,14 @@ class SpreadSheetTable(wx.grid.PyGridTableBase):
 
     def GetNumberRows(self):
         return 99
-        
+
     def GetNumberCols(self):
         return 25
 
     def IsEmptyCell(self, row, col):
         cellname = self._spreadsheet.getCellName(row, col)
-        return self._spreadsheet.getCell(cellname) == None
+        #return self._spreadsheet.getCell(cellname) == None
+        return self._spreadsheet.isEmptyCell(cellname)
 
     def GetFormula(self, row, col):
         cellname = self._spreadsheet.getCellName(row, col)
@@ -128,17 +131,19 @@ class SpreadSheetTable(wx.grid.PyGridTableBase):
                 elif (precedents > 0) and (dependents > 0):
                     attr = self._cell_attrs['intermediate']
                 # Only show global input and output when no cell is selected
-                elif not self._selected_cell:
+                elif self._selected_cell is None:
                     if precedents == 0:
                         attr = self._cell_attrs['input']
                     elif dependents == 0:
                         attr = self._cell_attrs['output']
         attr.IncRef()
         return attr
-    
+
     def SetFormula(self, row, col, formula):
         cellname = self._spreadsheet.getCellName(row, col)
         self._spreadsheet.setCellFormula(cellname, formula)
+        for c in self._selection_callbacks:
+            c(cellname, self._selected_cell)
 
     def DeleteCell(self, row, col):
         cellname = self._spreadsheet.getCellName(row, col)
@@ -162,7 +167,8 @@ class SpreadSheetTable(wx.grid.PyGridTableBase):
         return old_selected_cell != self._selected_cell
 
 class SpreadSheetGrid(wx.grid.Grid):
-    def __init__(self, parent, spreadsheet, selection_callbacks=None):
+    def __init__(self, parent, spreadsheet, 
+                 selection_callbacks=None):
         wx.grid.Grid.__init__(self, parent, -1)
         self._selection_callbacks = selection_callbacks or []
         font_size = self.GetCellFont(0, 0).GetPointSize()
@@ -186,7 +192,7 @@ class SpreadSheetGrid(wx.grid.Grid):
         attrs['input'] = bg_attr('#FFFFDD')
         attrs['output'] = bg_attr('#DDFFDD')
 
-        self._table = SpreadSheetTable(spreadsheet, attrs)
+        self._table = SpreadSheetTable(spreadsheet, attrs, self._selection_callbacks)
 
         self.SetTable(self._table, True)
         self.SetDefaultEditor(SpreadSheetCellEditor())
@@ -256,7 +262,7 @@ if __name__ == '__main__':
                 print cell_name, cell
             grid = SpreadSheetGrid(self, spreadsheet, [cell_selection_callback])
             #grid.SetCellRenderer(3, 1, ButtonRenderer())
-    
+
     app = wx.App(redirect=False)
     frame = TestFrame()
     frame.Show()

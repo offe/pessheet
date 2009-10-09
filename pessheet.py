@@ -97,6 +97,7 @@ class SheetPage(wx.Panel):
                 except:
                     pass
             except (Exception, SyntaxError, SpreadSheetError), e:
+                print e
                 value = str(e)
                 type_name = '(Error)'
         self.cell_formula_textctrl.SetValue(formula)

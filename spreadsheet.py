@@ -56,6 +56,12 @@ class SpreadSheetCell:
         return self._formula
 
     def getValue(self):
+        #if not self._updated:
+            #import traceback
+            #print self._formula
+            #traceback.print_stack()
+            #print 
+            #print
         if not self._updated:
             if not self._compiledformula:
                 self._compiledformula = compiler.compile(self._formula, 'Cell formula', 'eval')
@@ -111,6 +117,34 @@ class SpreadSheet:
         regex_compile_flags = 0
         self._cell_name_regex = re.compile('^(?P<col>[a-z])(?P<row>\d+)$', 
 			regex_compile_flags)
+        relative_name_regex = r"""
+^
+( # First part, column name
+ (?P<col>[a-z]) # An absolute column
+ |
+ (?P<relcol>X
+  (
+   (?P<coloffset>\d+) # Offset
+   (?P<coloffsetsign>[mplr]) # Plus / minus / left / right
+  )?
+ )
+)
+( # Second part, row name
+ (?P<row>\d+)   # An absolute row
+ |
+ (?P<relrow>X
+  (
+   (?P<rowoffset>\d+) # Offset
+   (?P<rowoffsetsign>[mpud]) # Plus / minus / up / down
+  )?
+ )
+)
+$
+"""
+        self._rel_cell_name_regex = re.compile(relative_name_regex, re.VERBOSE)
+        #self._rel_cell_name_regex = (
+                        #re.compile('^(?P<col>[a-zX])(?P<row>\d+|X)$',
+			#regex_compile_flags))
         self._cell_range_regex = re.compile(
 			'^(?P<start_column>[a-z])(?P<start_row>\d+)' +
 			'_to_' +
@@ -125,6 +159,9 @@ class SpreadSheet:
                 del self._cells[cell_name]
             else:
                 _ = self[cell_name]
+
+    def isEmptyCell(self, cell_name):
+        return cell_name not in self._cells
 
     def getCell(self, cell_name):
         cell = self._cells.get(cell_name, None)
@@ -207,9 +244,13 @@ script = \
             label = None
         else:
             row, col = self.getCellNamePos(name)
-            label_cell = self.getCell(self.getCellName(row, col-1))
-            label = label_cell.getValue() if label_cell else None
-            if not isinstance(label, str):
+            label_cell_name = self.getCellName(row, col-1)
+            if label_cell_name is not None:
+                label_cell = self.getCell(label_cell_name)
+                label = label_cell.getValue() if label_cell else None
+                if not isinstance(label, str):
+                    label = None
+            else:
                 label = None
         return name, label, formula, precedents, dependents
 
@@ -297,7 +338,21 @@ script = \
     def eval(self, compiledformula):
         return eval(compiledformula, self._globals, self)
 
+    def _columnPos2Name(self, pos):
+        return chr(ord('a') + pos)
+
+    def _rowPos2Name(self, pos):
+        return str(pos + 1)
+
+    def _columnName2Pos(self, pos):
+        return ord(pos) - ord('a')
+
+    def _rowName2Pos(self, pos):
+        return int(pos) - 1
+
     def getCellName(self, row, col):
+        if (row < 0 or col < 0):
+            return None
         return chr(ord('a') + col) + str(row + 1)
 
     def getCellNamePos(self, name):
@@ -307,22 +362,53 @@ script = \
         row = name_match.group('row')
         col = name_match.group('col')
         return (int(row) - 1, ord(col) - ord('a'))
-        
+
+    def _makeRelativeCellReferenceAbsolute(self, relative_ref, base_name):
+        relative_match = re.match(self._rel_cell_name_regex, relative_ref)
+        if not relative_match:
+            return None
+        else:
+            md = relative_match.groupdict()
+            base_row, base_col = self.getCellNamePos(base_name)
+            signs = {
+                'p': 1,
+                'r': 1,
+                'd': 1,
+                'm': -1,
+                'l': -1,
+                'u': -1,
+                None: 0
+            }
+            if md['relcol']:
+                relcol = signs[md['coloffsetsign']] * int(md['coloffset'] or 0)
+                col = base_col + relcol
+            else:
+                col = self._columnName2Pos(md['col'])
+            if md['relrow']:
+                relrow = signs[md['rowoffsetsign']] * int(md['rowoffset'] or 0)
+                row = base_row + relrow
+            else:
+                row = self._rowName2Pos(md['row'])
+            cell_name = self.getCellName(row, col)
+            if cell_name is None:
+                raise SpreadSheetError('Relative cell reference outside bounds')
+            return cell_name
+
     def _getRangeFormula(self, range_name):
         def column_name_to_number(name):
             return ord(name)-ord('a')
-    
+
         def column_number_to_name(n):
             return chr(n+ord('a'))
-    
+
         def row_range(row, left, right):
             return '[%s]' % ', '.join(column_number_to_name(c)+str(row)
                                       for c in xrange(left, right+1))
-                
+
         def column_range(top, bottom, column):
             return '[%s]' % ', '.join(column_number_to_name(column)+str(r)
                                       for r in xrange(top, bottom+1))
-                
+
         range_match = re.match(self._cell_range_regex, range_name)
         if not range_match:
             return None
@@ -340,12 +426,6 @@ script = \
                                           for r in xrange(top, bottom+1))
 
     def __getitem__(self, key):
-        def column_name_to_number(name):
-            return ord(name)-ord('a')
-
-        def column_number_to_name(n):
-            return chr(n+ord('a'))
-
         is_outmost_call = not self._eving
 
         try:
@@ -355,25 +435,33 @@ script = \
                     #Evaluating a cell in a loop
                     del self._eving[:]
                     raise SpreadSheetError('Circular Dependency')
- 
+
                 if self._eving:
                     cell.addDependent(self._eving[-1])
-            
+
                 self._eving.append(cell)
                 rv = cell.getValue()
                 self._eving.pop()
             else:
                 range_formula = self._getRangeFormula(key)
                 if re.match(self._cell_name_regex, key):
+                    # This is a valid cell name, but that cell is empty
                     self._cells[key] = SpreadSheetCell(key, repr(None), self, 
                                                        supporting_cell=True)
                     rv = self[key]
                 elif range_formula:
-                    self._cells[key] = SpreadSheetCell(key, range_formula, self, 
+                    # This is a valid range name, so create a new supporting
+                    # cell
+                    self._cells[key] = SpreadSheetCell(key, range_formula, self,
                                                        supporting_cell=True)
                     rv = self[key]
                 else:
-                    rv = self._locals[key]
+                    base_cell = self._eving[-1] if self._eving else None
+                    cell_name = self._makeRelativeCellReferenceAbsolute(key, base_cell.getName()) if base_cell else None
+                    if cell_name:
+                        rv = self.__getitem__(cell_name)
+                    else:
+                        rv = self._locals[key]
         finally:
             if is_outmost_call:
                 #Regardless of wheter an exception was raised, clear _eving
@@ -461,12 +549,13 @@ def main():
             ss = SpreadSheet()
             ss['a1'] = 'a2'
             ss['a2'] = 'a1'
-            self.assertRaises(SpreadSheetError, lambda: ss['a1'])
+            f = lambda: ss['a1']
+            self.assertRaises(SpreadSheetError, f)
             try:
-                val = ss['a1']
+                f()
             except SpreadSheetError, e:
                 self.assertEqual(str(e), 'Error: Circular Dependency')
-            
+
         def testNameErrorsAreReported(self):
             ss = SpreadSheet()
             ss['a1'] = '1'
@@ -501,7 +590,6 @@ def main():
             ss = SpreadSheet()
             ss.setCellFormula('a1', '[x for x in xrange(3)]')
             self.assertEqual(ss.getCell('a1').getValue(), [0, 1, 2])
-            
 
         def testColumnRangesAreLists(self):
             ss = SpreadSheet()
@@ -527,12 +615,45 @@ def main():
             ss['b3'] = repr('b3')
             self.assertEqual(ss['a1_to_b3'], [['a1', 'b1'], ['a2', 'b2'], ['a3', 'b3']])
 
+        def testRelativeColumnDependenciesWork(self):
+            ss = SpreadSheet()
+            ss['a1'] = repr(1)
+            ss['a2'] = 'a1'
+            ss['a3'] = 'X1'
+            self.assertEqual(ss['a3'], 1)
+
+        def testRelativeRowDependenciesWork(self):
+            ss = SpreadSheet()
+            ss['a1'] = repr(1)
+            ss['b1'] = 'a1'
+            ss['c1'] = 'aX'
+            self.assertEqual(ss['c1'], 1)
+
+        def testRelativeDependenciesWork(self):
+            ss = SpreadSheet()
+            ss['b1'] = repr(2)
+            ss['b5'] = 'XX4u'
+            self.assertEqual(ss['b5'], 2)
+
+        def testRelativeDependenciesReferingOutsideSheetWork(self):
+            ss = SpreadSheet()
+            ss['b1'] = 'bX1u'
+            ss['a2'] = 'X1l2'
+            f = lambda: ss['b1']
+            self.assertRaises(SpreadSheetError, f)
+            try:
+                f()
+            except SpreadSheetError, e:
+                self.assertEqual(str(e), 'Error: Relative cell reference outside bounds')
+            f = lambda: ss['a2']
+            self.assertRaises(SpreadSheetError, f)
+
         def testScriptsVariablesCanBeUsedInCells(self):
             ss = SpreadSheet()
             ss.setScript('ONE_THOUSAND = 1000')
             ss['a1000'] = 'ONE_THOUSAND'
             self.assertEqual(ss['a1000'], 1000)
-            
+
         def testFunctionsInScriptCanUseOtherFunctionsInScript(self):
             ss = SpreadSheet()
             ss.setScript("""
@@ -554,7 +675,7 @@ def b():
             self.assertEqual(ss['a1000'], 1000)
             ss.setScript('ONE_THOUSAND = 900') # Inflation
             self.assertEqual(ss['a1000'], 900)
-            
+
         def testCellsCanUseFunctionsDefinedInScripts(self):
             ss = SpreadSheet()
             ss.setScript(
@@ -587,7 +708,6 @@ script = \
 ''
 """
             self.assertEquals(ss.save(), save_file)
-            
 
         def testSavingSpreadSheet(self):
             ss = SpreadSheet()
@@ -717,13 +837,27 @@ b1->b2 [label="b1"]
             self.assertEquals(ss.getCellName(0, 0), 'a1')
             self.assertEquals(ss.getCellName(99, 0), 'a100')
             self.assertEquals(ss.getCellName(99, 25), 'z100')
+            self.assertEquals(ss.getCellName(-1, 5), None)
 
         def testGetCellNamePos(self):
             ss = SpreadSheet()
             self.assertEquals(ss.getCellNamePos('a1'), (0, 0))
             self.assertEquals(ss.getCellNamePos('z100'), (99, 25))
 
-        
+        def testMakeRelativeReferenceAbsolute(self):
+            ss = SpreadSheet()
+            make_relative = ss._makeRelativeCellReferenceAbsolute
+            self.assertEquals(make_relative('X1lX', 'c20'), 'b20')
+            self.assertEquals(make_relative('X1r30', 'c20'), 'd30')
+            self.assertEquals(make_relative('X1mX', 'c20'), 'b20')
+            self.assertEquals(make_relative('X1p3', 'c20'), 'd3')
+            self.assertEquals(make_relative('dX1u', 'c20'), 'd19')
+            self.assertEquals(make_relative('dX1d', 'c20'), 'd21')
+            self.assertEquals(make_relative('dX1m', 'c20'), 'd19')
+            self.assertEquals(make_relative('dX1p', 'c20'), 'd21')
+            f = lambda: make_relative('X1l5', 'a1')
+            self.assertRaises(SpreadSheetError, f)
+
     suite = unittest.TestLoader().loadTestsFromTestCase(TestSpreadSheetBasics)
     #suite = unittest.TestSuite([TestSpreadSheetBasics('testFunctionsInScriptCanUseOtherFunctionsInScript')])
     unittest.TextTestRunner(verbosity=2).run(suite)
