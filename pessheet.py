@@ -6,7 +6,6 @@ from wx.lib import sheet
 import wx
 import wx.py.editor
 
-#import spreadsheet
 from spreadsheet import SpreadSheet, SpreadSheetError
 
 import spreadsheetgrid
@@ -196,7 +195,7 @@ class PysApplicationWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnEditCopy, id=wx.ID_COPY)
         self.Bind(wx.EVT_MENU, self.OnEditPaste, id=wx.ID_PASTE)
         self.Bind(wx.EVT_MENU, self.OnOptions, id=wx.ID_PREFERENCES)
-        
+
         script_page.Bind(wx.EVT_KILL_FOCUS, self.onEditorLostFocus)
 
         self.updateTitle()
@@ -362,16 +361,16 @@ class PysApplicationWindow(wx.Frame):
             self._dirname = filedialog.GetDirectory()
             self.save()
         filedialog.Destroy()
-        
+
     def OnFileExport(self, event):
         export_formats = [
-	   ('Python script (*.py)', '.py', self.export_python), 
-	   ('Graphviz dot file (*.dot)', '.dot', self.export_dot), 
+           ('Python script (*.py)', '.py', self.export_python),
+           ('Graphviz dot file (*.dot)', '.dot', self.export_dot),
         ]
         filter_string = '|'.join(d+'|*'+e for d, e, _ in export_formats)
-        filedialog = wx.FileDialog(self, 'Export spreadsheet as', 
-                                   self._dirname, '', 
-				   filter_string, 
+        filedialog = wx.FileDialog(self, 'Export spreadsheet as',
+                                   self._dirname, '',
+                                   filter_string,
                                    wx.SAVE | wx.OVERWRITE_PROMPT)
         if filedialog.ShowModal() == wx.ID_OK:
             filter_index = filedialog.GetFilterIndex()
@@ -382,7 +381,7 @@ class PysApplicationWindow(wx.Frame):
                 filename += extension
             export_function(dirname, filename)
         filedialog.Destroy()
-        
+
     def export_python(self, dirname, filename):
         import os
         self.SetStatusText('Exporting to file %s' % filename)
@@ -398,15 +397,11 @@ class PysApplicationWindow(wx.Frame):
         f.write(self._spreadsheet.asDot())
         f.close()
         self.SetStatusText('Spreadsheet exported')
-        #dialog = wx.MessageDialog(None, 'Exporting to dot format not yet implemented', 
-			#'Not yet implemented', wx.OK)
-        #dialog.ShowModal()
-        #dialog.Destroy()
 
     def OnEditCut(self, event):
         #print 'PysApplicationWindow.OnEditCut', event
         clip_object = None
-        if (wx.GetActiveWindow().FindFocus().GetParent() == 
+        if (wx.GetActiveWindow().FindFocus().GetParent() ==
                     self._sheet_page.grid):
                 clip_object = self._sheet_page.grid.cut()
         if clip_object:
@@ -451,19 +446,20 @@ class PysApplicationWindow(wx.Frame):
 
     def OnOptions(self, event):
         value = '\n'.join(self._additional_paths)
-        d = wx.TextEntryDialog(self, 
-                'Additional paths to python packages (one per line)', 
-                'Additional paths', value, 
+        d = wx.TextEntryDialog(self,
+                'Additional paths to python packages (one per line)',
+                'Additional paths', value,
                 style=wx.OK|wx.CANCEL|wx.TE_MULTILINE)
         if d.ShowModal() == wx.ID_OK:
             value = str(d.GetValue()).splitlines()
             self._additional_paths[:] = value[:]
             self.saveSettings()
-      
+
         event.Skip()
 
 if __name__ == '__main__':
-    app = wx.App() #redirect=False)
+    #app = wx.App()
+    app = wx.App(redirect=False)
 
     bmp = wx.Image('pes_splash.png', wx.BITMAP_TYPE_ANY).ConvertToBitmap()
     wx.SplashScreen(bmp, wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT,
@@ -471,6 +467,7 @@ if __name__ == '__main__':
 
     window_size = wx.GetDisplaySize()
     window_size.Scale(0.8, 0.8)
+
 
     path, filename = '', None
     import sys
