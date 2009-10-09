@@ -1,18 +1,10 @@
 #!/usr/bin/python
 
-# TODO
-# * Make it possible to double click on pss-files
-# * Autolabels (for dot-files)
-# * When you press Del an ugly square appears at end of formula
-# * Error-window below editor (sash). Don't use stdout for normal operation. 
-
-
-
 # spreadsheet.py
 
 from wx.lib import sheet
 import wx
-import wx.py.editor 
+import wx.py.editor
 
 #import spreadsheet
 from spreadsheet import SpreadSheet, SpreadSheetError
@@ -42,7 +34,7 @@ def conf_file_name(appname):
         T = ctypes.c_wchar * MAX_DATA_SIZE
         app_data = T()
         f = ctypes.windll.shell32.SHGetFolderPathW
-        if f(0, CSIDL_APPDATA | CSIDL_FLAG_CREATE, 0, SHGFP_TYPE_CURRENT, 
+        if f(0, CSIDL_APPDATA | CSIDL_FLAG_CREATE, 0, SHGFP_TYPE_CURRENT,
              app_data):
             raise RuntimeError('Failed to call SHGetFolderPathW()')
         directory = os.path.join(app_data.value, appname)
@@ -55,7 +47,7 @@ def conf_file_name(appname):
 class SheetPage(wx.Panel):
     def __init__(self, parent, spreadsheet):
         wx.Panel.__init__(self, parent, id=wx.ID_ANY)
-        
+
         self.SetBackgroundColour(parent.GetBackgroundColour())
 
         cell_toolbar_line1 = wx.Panel(self)
@@ -116,7 +108,7 @@ class SheetPage(wx.Panel):
         value = event.GetEventObject().GetValue()
         row = self.grid.GetGridCursorRow()
         col = self.grid.GetGridCursorCol()
-        
+
         old_value = self.grid.GetTable().GetFormula(row, col)
         if value != old_value:
             self.grid.GetTable().SetFormula(row, col, value)
@@ -133,11 +125,11 @@ class GraphImage(wx.Window):
 
 class PysApplicationWindow(wx.Frame):
 
-    def __init__(self, parent, id, title, size):
+    def __init__(self, parent, id, title, size, filename=None, dirname=''):
         wx.Frame.__init__(self, parent, id, title, size=size)
 
-        self._filename = None
-        self._dirname = ''
+        self._filename = filename
+        self._dirname = dirname
 
         self._additional_paths = []
         self._conf_filename = conf_file_name('pessheet')
@@ -212,6 +204,8 @@ class PysApplicationWindow(wx.Frame):
         self.Centre()
         self.Show(True)
         self._sheet_page.grid.SetFocus()
+        if self._filename is not None:
+            self.load()
 
     def loadSettings(self):
         import cPickle
@@ -285,7 +279,6 @@ class PysApplicationWindow(wx.Frame):
                         self.Bind(wx.EVT_MENU, callback, assigned_id)
                 else:
                     menu.AppendSeparator()
-                    
         return menuBar
 
 
@@ -301,7 +294,7 @@ class PysApplicationWindow(wx.Frame):
         self.Close()
 
     def getApplicationName(self, version=False):
-        return 'PESsheet' + (' v0.03' if version else '')
+        return 'PESsheet' + (' v0.04' if version else '')
 
     def updateTitle(self):
         if self._filename:
@@ -324,10 +317,9 @@ class PysApplicationWindow(wx.Frame):
         if filedialog.ShowModal() == wx.ID_OK:
             self._filename = filedialog.GetFilename()
             self._dirname = filedialog.GetDirectory()
-            self.load()
         filedialog.Destroy()
-        self.Refresh()
-      
+        self.load()
+
     def load(self):
         import os
         self.SetStatusText('Loading file %s' % self._filename)
@@ -343,6 +335,7 @@ class PysApplicationWindow(wx.Frame):
         self._editor.SetText(self._spreadsheet.getScript())
         self.SetStatusText('File loaded')
         self.updateTitle()
+        self.Refresh()
 
     def save(self):
         import os
@@ -470,17 +463,24 @@ class PysApplicationWindow(wx.Frame):
         event.Skip()
 
 if __name__ == '__main__':
-    app = wx.App(redirect=False)
+    app = wx.App() #redirect=False)
 
     bmp = wx.Image('pes_splash.png', wx.BITMAP_TYPE_ANY).ConvertToBitmap()
-    wx.SplashScreen(bmp, wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT, 
+    wx.SplashScreen(bmp, wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT,
                     1000, None, -1)
 
     window_size = wx.GetDisplaySize()
     window_size.Scale(0.8, 0.8)
 
-    main_window = PysApplicationWindow(None, wx.ID_ANY, 
-                                       'Python Scriptable SpreadSheet', 
-                                       window_size)
+    path, filename = '', None
+    import sys
+    if len(sys.argv) > 1:
+        import os.path
+        path, filename = os.path.split(sys.argv[1])
+
+    main_window = PysApplicationWindow(None, wx.ID_ANY,
+                                       'Python Scriptable SpreadSheet',
+                                       window_size, filename=filename,
+                                       dirname=path)
     app.MainLoop()
 
