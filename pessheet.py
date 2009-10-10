@@ -186,7 +186,8 @@ class PysApplicationWindow(wx.Frame):
 
         box.Add(notebook, 1, wx.EXPAND)
 
-        self.Bind(wx.EVT_MENU, self.OnQuit, id=wx.ID_EXIT)
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
+        self.Bind(wx.EVT_MENU, self.OnExit, id=wx.ID_EXIT)
         self.Bind(wx.EVT_MENU, self.OnFileNew, id=wx.ID_NEW)
         self.Bind(wx.EVT_MENU, self.OnFileOpen, id=wx.ID_OPEN)
         self.Bind(wx.EVT_MENU, self.OnFileSave, id=wx.ID_SAVE)
@@ -290,8 +291,16 @@ class PysApplicationWindow(wx.Frame):
         script = '\n'.join(script.splitlines())
         self._spreadsheet.setScript(script)
 
-    def OnQuit(self, event):
+    def OnExit(self, event):
         self.Close()
+
+    def OnClose(self, event):
+        dlg = wx.MessageDialog(self, 
+                               "Want to exit %s?" % self.getApplicationName(), 
+                               "Exit", wx.YES_NO | wx.ICON_QUESTION)
+        if dlg.ShowModal() == wx.ID_YES:
+            self.Destroy()
+        dlg.Destroy()
 
     def getApplicationName(self, version=False):
         return 'PESsheet' + (' v0.04' if version else '')
