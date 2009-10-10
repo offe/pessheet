@@ -11,7 +11,11 @@ cells = {
     'a9': u"'Function call'", 
     'b9': u'hello_n(b7)', 
     'a10': u"'Direct'", 
-    'b10': u"'Hello %d' % b7"
+    'b10': u"'Hello %d' % b7", 
+    'b12': u"'Ranges'", 
+    'b13': u"'are'", 
+    'b14': u"'fun'", 
+    'b16': u"' '.join(b12_to_b14).upper()"
 }
 
 script = u"\ndef hello_n(n):\n    return 'Hello %d' % n"

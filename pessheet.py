@@ -10,11 +10,20 @@ from spreadsheet import SpreadSheet, SpreadSheetError
 
 import spreadsheetgrid
 
+def getApplicationVersion():
+    return '0.1.0'
+
+def getApplicationName():
+    return 'PESsheet'
+
+def getFullApplicationName():
+    return '%s v%s' % (getApplicationName(), getApplicationVersion())
+
 def iconsize():
     return 16
 
 def iconbitmap(name):
-    return wx.Bitmap('icons%d/%s' % (iconsize(), name))
+    return wx.Bitmap('resources/icons%d/%s' % (iconsize(), name))
 
 def iconbitmapsize():
     return (iconsize(), iconsize())
@@ -125,11 +134,13 @@ class GraphImage(wx.Window):
 
 class PysApplicationWindow(wx.Frame):
 
-    def __init__(self, parent, id, title, size, filename=None, dirname=''):
+    def __init__(self, parent, id, title, size, wxapp, filename=None, dirname=''):
         wx.Frame.__init__(self, parent, id, title, size=size)
 
         self._filename = filename
         self._dirname = dirname
+
+        self.wxapp = wxapp
 
         self._additional_paths = []
         self._conf_filename = conf_file_name('pessheet')
@@ -141,7 +152,7 @@ class PysApplicationWindow(wx.Frame):
         self._spreadsheet = SpreadSheet(self._additional_paths)
 
         ib = wx.IconBundle()
-        ib.AddIconFromFile("pessheet.ico", wx.BITMAP_TYPE_ANY)
+        ib.AddIconFromFile("resources/pessheet.ico", wx.BITMAP_TYPE_ANY)
         self.SetIcons(ib)
 
         self.id_export = wx.NewId()
@@ -161,9 +172,9 @@ class PysApplicationWindow(wx.Frame):
         alt(wx.ID_COPY, '', iconbitmap('edit-copy.png'), shortHelp='Copy')
         alt(wx.ID_PASTE, '', iconbitmap('edit-paste.png'), shortHelp='Paste')
         #alt(-1, '',  iconbitmap('edit-delete.png'), shortHelp='Delete')
-        main_toolbar.AddSeparator()
-        alt(wx.ID_UNDO, '', iconbitmap('edit-undo.png'), shortHelp='Undo')
-        alt(wx.ID_REDO, '', iconbitmap('edit-redo.png'), shortHelp='Redo')
+        #main_toolbar.AddSeparator()
+        #alt(wx.ID_UNDO, '', iconbitmap('edit-undo.png'), shortHelp='Undo')
+        #alt(wx.ID_REDO, '', iconbitmap('edit-redo.png'), shortHelp='Redo')
         main_toolbar.AddSeparator()
         alt(wx.ID_EXIT, '',  iconbitmap('system-log-out.png'), shortHelp='Exit')
 
@@ -231,33 +242,35 @@ class PysApplicationWindow(wx.Frame):
              [
               (wx.ID_NEW, '&New...\tCtrl-N', 'Create new spreadsheet'), 
               (wx.ID_OPEN, '&Open...\tCtrl-O', 'Open a spreadsheet'), 
+              None, #Separator
               (wx.ID_SAVE, '&Save\tCtrl-S', 'Save current spreadsheet'),
               (wx.ID_SAVEAS, 'Save As...\tCtrl-Shift-S', 'Save current spreadsheet as new file'),
+              None, #Separator
               (self.id_export, 'Export...\tCtrl-E', 'Export current spreadsheet into other format'),
               None, #Separator
-              (wx.ID_ABOUT, '&About pyssheet', 'Information about this program'),
-              (wx.ID_HELP, '&Help', 'Help about using this program'),
-              None,
+              #(wx.ID_ABOUT, '&About pyssheet', 'Information about this program'),
+              #(wx.ID_HELP, '&Help', 'Help about using this program'),
+              #None,
               (wx.ID_EXIT, 'E&xit\tCtrl-Q', 'Terminate the program'),
              ]
             ),
             ('&Edit', 
              [
-              (wx.ID_UNDO, 'Undo\tCtrl-Z', 'Undo'), 
-              (wx.ID_REDO, 'Redo\tCtrl-Shift-Z', 'Redo'),
-              None, 
+              #(wx.ID_UNDO, 'Undo\tCtrl-Z', 'Undo'), 
+              #(wx.ID_REDO, 'Redo\tCtrl-Shift-Z', 'Redo'),
+              #None, 
               (wx.ID_CUT, 'Cut\tCtrl-X', 'Cut selection into Clipboard'), 
               (wx.ID_COPY, 'Copy\tCtrl-C', 'Copy selection into Clipboard'),
               (wx.ID_PASTE, 'Paste\tCtrl-V', 'Paste the content of the Clipboard into the sheet'),
              ]
             ),
-            ('&View', 
-             [
-              (self.onSheet, 'Sheet', 'Show Sheet'), 
-              #(wx.ID_ANY, 'Graph', 'Show Calculation Graph'),
-              (wx.ID_ANY, 'Script', 'Show Script'),
-             ]
-            ),
+            #('&View', 
+             #[
+              #(self.onShowSheet, 'Sheet', 'Show Sheet'), 
+              ##(wx.ID_ANY, 'Graph', 'Show Calculation Graph'),
+              #(self.onShowScript, 'Script', 'Show Script'),
+             #]
+            #),
             ('&Tools', 
              [
               (wx.ID_PREFERENCES, '&Options...', 'Set options'), 
@@ -283,9 +296,6 @@ class PysApplicationWindow(wx.Frame):
         return menuBar
 
 
-    def onSheet(self, event):
-        print 'OnSheet called'
-
     def onEditorLostFocus(self, event):
         script = self._editor.GetText()
         script = '\n'.join(script.splitlines())
@@ -295,33 +305,42 @@ class PysApplicationWindow(wx.Frame):
         self.Close()
 
     def OnClose(self, event):
-        dlg = wx.MessageDialog(self, 
-                               "Want to exit %s?" % self.getApplicationName(), 
+        dlg = wx.MessageDialog(self,
+                               "Want to exit %s?" % getApplicationName(),
                                "Exit", wx.YES_NO | wx.ICON_QUESTION)
         if dlg.ShowModal() == wx.ID_YES:
             self.Destroy()
+            stdiowin = self.wxapp.stdioWin
+            if stdiowin:
+                stdiowin.close()
         dlg.Destroy()
-
-    def getApplicationName(self, version=False):
-        return 'PESsheet' + (' v0.04' if version else '')
 
     def updateTitle(self):
         if self._filename:
-            self.SetTitle('%s (%s) - %s' % (self._filename, self._dirname, self.getApplicationName(True)))
+            self.SetTitle('%s (%s) - %s' % (self._filename,
+                                            self._dirname,
+                                            getFullApplicationName()))
         else:
-            self.SetTitle('New spreadsheet - %s' % self.getApplicationName(True))
+            self.SetTitle('New spreadsheet - %s' %
+                          getFullApplicationName())
 
     def OnFileNew(self, event):
-        self._filename = None
-        self._spreadsheet.clear()
-        self.Refresh()
-        self.SetStatusText('New spreadsheet created')
-        self.updateTitle()
+        dlg = wx.MessageDialog(self,
+                               "Create new spreadsheet?\nThis will discard the current spreadsheet.",
+                               "New spreadsheet", wx.YES_NO | wx.ICON_QUESTION)
+        if dlg.ShowModal() == wx.ID_YES:
+            self._filename = None
+            self._spreadsheet.clear()
+            self.Refresh()
+            self.SetStatusText('New spreadsheet created')
+            self.updateTitle()
+        dlg.Destroy()
+
 
     def OnFileOpen(self, event):
         filedialog = wx.FileDialog(self, "Open spreadsheet file", 
                                    self._dirname, '', 
-                                   "%s files (*.pss)|*.pss" % self.getApplicationName(), 
+                                   "%s files (*.pss)|*.pss" % getApplicationName(), 
                                    wx.OPEN)
         if filedialog.ShowModal() == wx.ID_OK:
             self._filename = filedialog.GetFilename()
@@ -364,7 +383,7 @@ class PysApplicationWindow(wx.Frame):
     def OnFileSaveAs(self, event):
         filedialog = wx.FileDialog(self, "Save spreadsheet as", 
                                    self._dirname, '', 
-                                   "%s files (*.pss)|*.pss" % self.getApplicationName(), 
+                                   "%s files (*.pss)|*.pss" % getApplicationName(), 
                                    wx.SAVE | wx.OVERWRITE_PROMPT)
         if filedialog.ShowModal() == wx.ID_OK:
             self._filename = filedialog.GetFilename()
@@ -467,11 +486,17 @@ class PysApplicationWindow(wx.Frame):
 
         event.Skip()
 
-if __name__ == '__main__':
-    #app = wx.App()
-    app = wx.App(redirect=False)
+def main(argv):
+    import os
+    # Move to the location of the program! 
+    script_path = os.path.dirname(argv[0])
+    if script_path != '':
+        # Started from somewhere else
+        os.chdir(script_path)
+    app = wx.App()
+    #app = wx.App(redirect=False)
 
-    bmp = wx.Image('pes_splash.png', wx.BITMAP_TYPE_ANY).ConvertToBitmap()
+    bmp = wx.Image('resources/pes_splash.png', wx.BITMAP_TYPE_ANY).ConvertToBitmap()
     wx.SplashScreen(bmp, wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT,
                     1000, None, -1)
 
@@ -480,14 +505,17 @@ if __name__ == '__main__':
 
 
     path, filename = '', None
-    import sys
-    if len(sys.argv) > 1:
+    if len(argv) > 1:
         import os.path
-        path, filename = os.path.split(sys.argv[1])
+        path, filename = os.path.split(argv[1])
 
     main_window = PysApplicationWindow(None, wx.ID_ANY,
                                        'Python Scriptable SpreadSheet',
                                        window_size, filename=filename,
-                                       dirname=path)
+                                       dirname=path, wxapp=app)
     app.MainLoop()
+
+if __name__ == '__main__':
+    import sys
+    main(sys.argv)
 
