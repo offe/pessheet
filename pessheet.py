@@ -134,13 +134,14 @@ class GraphImage(wx.Window):
 
 class PysApplicationWindow(wx.Frame):
 
-    def __init__(self, parent, id, title, size, wxapp, filename=None, dirname=''):
+    def __init__(self, parent, id, title, size, call_on_destroy,
+                 filename=None, dirname=''):
         wx.Frame.__init__(self, parent, id, title, size=size)
 
         self._filename = filename
         self._dirname = dirname
 
-        self.wxapp = wxapp
+        self._call_on_destroy = call_on_destroy
 
         self._additional_paths = []
         self._conf_filename = conf_file_name('pessheet')
@@ -310,9 +311,7 @@ class PysApplicationWindow(wx.Frame):
                                "Exit", wx.YES_NO | wx.ICON_QUESTION)
         if dlg.ShowModal() == wx.ID_YES:
             self.Destroy()
-            stdiowin = self.wxapp.stdioWin
-            if stdiowin:
-                stdiowin.close()
+            self._call_on_destroy()
         dlg.Destroy()
 
     def updateTitle(self):
@@ -487,14 +486,19 @@ class PysApplicationWindow(wx.Frame):
         event.Skip()
 
 def main(argv):
-    import os
     # Move to the location of the program! 
-    script_path = os.path.dirname(argv[0])
-    if script_path != '':
-        # Started from somewhere else
-        os.chdir(script_path)
-    app = wx.App()
-    #app = wx.App(redirect=False)
+    import os
+    abspath = os.path.abspath(argv[0])
+    dname = os.path.dirname(abspath)
+    os.chdir(dname)
+
+    redirect = False
+    if argv[-1] == '-g':
+        redirect = True
+        argv.pop()
+
+    #app = wx.App()
+    app = wx.App(redirect=redirect)
 
     bmp = wx.Image('resources/pes_splash.png', wx.BITMAP_TYPE_ANY).ConvertToBitmap()
     wx.SplashScreen(bmp, wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT,
@@ -503,16 +507,20 @@ def main(argv):
     window_size = wx.GetDisplaySize()
     window_size.Scale(0.8, 0.8)
 
-
     path, filename = '', None
     if len(argv) > 1:
         import os.path
         path, filename = os.path.split(argv[1])
 
+    def call_on_destroy():
+        if app.stdioWin:
+            app.stdioWin.close()
+
     main_window = PysApplicationWindow(None, wx.ID_ANY,
                                        'Python Scriptable SpreadSheet',
                                        window_size, filename=filename,
-                                       dirname=path, wxapp=app)
+                                       dirname=path,
+                                       call_on_destroy=call_on_destroy)
     app.MainLoop()
 
 if __name__ == '__main__':
