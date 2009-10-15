@@ -1,6 +1,4 @@
-# Todo:
- # GetDotFile (GraphVis-file)
- # Labels
+ # Todo:
  # Actions
  # Some way of finding out when cells needs to be updated (listeners)?
 

@@ -13,7 +13,7 @@ class SpreadSheetCellEditor(wx.grid.PyGridCellEditor):
         self.SetControl(self._tc)
         if evtHandler:
             self._tc.PushEventHandler(evtHandler)
-        
+
     def SetSize(self, rect):
         self._tc.SetDimensions(rect.x, rect.y, rect.width+2, rect.height+2,
                                wx.SIZE_ALLOW_MINUS_ONE)
@@ -231,15 +231,31 @@ class SpreadSheetGrid(wx.grid.Grid):
         print 'SpreadSheetGrid.OnEditPaste', event
         event.Skip()
 
+    def getAllSelectedCells(self):
+        # Does not include selected rows and columns, only separate and block
+        # selections
+        individual_cells = self.GetSelectedCells()
+        rects = zip(self.GetSelectionBlockTopLeft(),
+                    self.GetSelectionBlockBottomRight())
+        current = (self.GetGridCursorRow(), self.GetGridCursorCol())
+        all_cells = set(individual_cells)
+        all_cells.add(current)
+        for (t, l), (b, r) in rects:
+            for row in xrange(t, b+1):
+                for col in xrange(l, r+1):
+                    all_cells.add((row, col))
+        return all_cells
+
     def paste(self, text):
-        row, col = self.GetGridCursorRow(), self.GetGridCursorCol()
-        self._table.SetFormula(row, col, text)
+        for row, col in self.getAllSelectedCells():
+            self._table.SetFormula(row, col, text)
         self.ForceRefresh()
 
     def cut(self):
         row, col = self.GetGridCursorRow(), self.GetGridCursorCol()
         formula = self._table.GetFormula(row, col)
-        self._table.DeleteCell(row, col)
+        for row, col in self.getAllSelectedCells():
+            self._table.DeleteCell(row, col)
         self.ForceRefresh()
         return formula
 

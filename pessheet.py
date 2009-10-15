@@ -120,8 +120,11 @@ class SheetPage(wx.Panel):
 
         old_value = self.grid.GetTable().GetFormula(row, col)
         if value != old_value:
-            self.grid.GetTable().SetFormula(row, col, value)
-            self.grid.ForceRefresh()
+            if value.strip():
+                self.grid.GetTable().SetFormula(row, col, value)
+            else:
+                self.grid.GetTable().DeleteCell(row, col)
+            wx.CallAfter(self.grid.ForceRefresh)
         event.Skip()
 
 
